@@ -1,0 +1,64 @@
+version: "3.3"
+
+services:
+
+  traefik:
+    labels: 
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+    image: "traefik:v3.3"
+    container_name: "traefik"
+    command:
+      #- "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.websecure.address=:443"
+
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # Traefik Dashboard
+      - "8088:8088"
+      - "8443:8443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks: 
+      - web
+
+  easyrtc:
+    image: easyrtc-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    labels: 
+      - "traefik.enable=true"
+      - "traefik.http.routers.easyrtc.rule=Host(`easyrtc.example.com`)"
+      - "traefik.http.routers.easyrtc.entrypoints=web"
+      - "traefik.http.services.easyrtc.loadbalancer.server.port=8080"
+
+      # Tutorial labels
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.easyrtc.entrypoints=websecure"
+      - "traefik.http.routers.easyrtc.tls=true"
+      - "traefik.http.routers.easyrtc.service=easyrtc-service@file"
+      - "traefik.http.routers.easyrtc.loadbalancer.server.port=8080"
+    networks:
+      - web
+    ports:
+      - "8088:8088"
+      - "8443:8443"
+    volumes:
+      - certs:/usr/src/app/certs
+      - static:/usr/src/app/static
+      - demos:/usr/src/app/open-easyrtc/demos
+
+networks:
+  web:
+    external: true
+
+volumes:
+  certs:
+  static:
+  demos:
